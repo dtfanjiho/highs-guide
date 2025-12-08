@@ -8,63 +8,60 @@ st.title("🎓 중3 전공-과목 추천기")
 try:
     API_KEY = st.secrets["CAREER_API_KEY"]
 except:
-    st.error("🔑 API 키 설정을 확인해주세요! (Settings > Secrets)")
+    st.error("🔑 API 키를 설정해주세요 (Settings > Secrets)")
     st.stop()
 
-major_name = st.text_input("궁금한 학과 이름 (예: 컴퓨터, 간호, 디자인)")
+major_name = st.text_input("궁금한 학과 이름 (예: 컴퓨터, 간호, 기계)")
 
 if major_name:
-    # [수정 포인트] 커리어넷 표준 API 파라미터 구조로 재정렬
+    # [에러 -4 해결책] 파라미터를 최소화하여 서버 에러 방지
     url = "https://www.career.go.kr/cnet/openapi/getOpenApi"
     params = {
         "apiKey": API_KEY,
         "svcMeta": "dict",
-        "svcId": "major",       # 학과 정보
-        "svcType": "api",       # API 타입
-        "contentType": "json",
-        "searchMajor": major_name # [핵심] 검색어를 파라미터로 직접 전달
+        "svcId": "major",       # 학과 정보 서비스 ID
+        "svcType": "api",       # api 고정
+        "contentType": "json"
     }
     
-    with st.spinner('커리어넷에서 최신 입시 정보를 분석 중...'):
+    with st.spinner('커리어넷에서 데이터를 가져오는 중...'):
         try:
             response = requests.get(url, params=params)
             data = response.json()
             
-            # 커리어넷 응답 데이터의 계층 구조를 안전하게 탐색
-            # 결과가 data['dataSearch']['content']에 담겨 옵니다.
+            # 응답 구조 확인 및 데이터 추출
             if 'dataSearch' in data and 'content' in data['dataSearch']:
-                majors = data['dataSearch']['content']
+                all_majors = data['dataSearch']['content']
                 
-                if majors:
-                    # 첫 번째 검색 결과 가져오기
-                    target = majors[0]
+                # [중요] 파이썬 내부에서 검색어가 포함된 학과 필터링
+                found_majors = [m for m in all_majors if major_name in m.get('majorName', '')]
+
+                if found_majors:
+                    target = found_majors[0] # 가장 유사한 첫 번째 결과
                     
-                    st.success(f"✅ {target['majorName']} 학과를 찾았습니다!")
+                    st.success(f"✅ '{target['majorName']}' 학과 정보를 찾았습니다!")
                     
-                    tab1, tab2 = st.tabs(["🏛️ 학과 상세 소개", "📚 고교학점제 가이드"])
+                    tab1, tab2 = st.tabs(["🏛️ 학과 상세", "📚 추천 선택과목"])
                     
                     with tab1:
                         st.subheader("주요 교육 내용")
-                        st.write(target.get('mainCourse', '정보가 없습니다.'))
+                        st.write(target.get('mainCourse', '세부 정보가 제공되지 않는 학과입니다.'))
                     
                     with tab2:
-                        st.subheader("중3을 위한 과목 선택 전략")
-                        st.info(f"'{target['majorName']}' 전공은 기초 소양과 함께 진로선택과목의 전문성이 중요합니다.")
+                        st.subheader("고교학점제 가이드")
+                        st.info(f"'{target['majorName']}' 지망생은 기초 교과(국·영·수)와 함께 전공 연계 탐구 과목 이수를 권장합니다.")
                         st.markdown("---")
-                        st.markdown("#### 💡 권장 선택 과목 예시")
-                        st.write("1. **기초:** 국어, 수학, 영어 공통과목 충실 이수")
-                        st.write(f"2. **심화:** 해당 학과와 연관된 탐구(과학/사회) 및 전문 교과 확인")
-                        st.caption("※ 학교별로 개설 과목이 다를 수 있으므로 학교 알리미를 함께 참조하세요.")
+                        st.markdown("#### 💡 추천 과목 예시")
+                        st.write("1. **기초:** 공통 수학, 공통 과학, 공통 영어")
+                        st.write("2. **선택:** 학과와 관련된 사회/과학 탐구 및 전문교과")
                 else:
-                    st.warning(f"'{major_name}' 학과에 대한 검색 결과가 없습니다.")
+                    st.warning(f"'{major_name}' 학과를 찾지 못했습니다. 다른 키워드로 검색해보세요.")
             else:
-                # 에러 로그 노출 및 설명
-                st.error("⚠️ 데이터 구조 분석 오류")
-                st.write("커리어넷 서버 응답 형식이 변경되었거나 파라미터 불일치 현상이 발생했습니다.")
-                st.expander("에러 상세 로그 (디버깅용)").json(data)
+                st.error("⚠️ 커리어넷 응답 형식 오류")
+                st.expander("로그 보기").json(data)
                 
         except Exception as e:
-            st.error(f"❌ 연결 오류: {e}")
+            st.error(f"❌ 데이터 연결 실패: {e}")
 
 st.divider()
 st.caption("제공: 커리어넷 오픈 API / 중3 고교학점제 준비용 프로토타입")
