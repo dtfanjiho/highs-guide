@@ -17,12 +17,14 @@ except KeyError:
     st.stop()
 
 
-# --- 에듀넷 API 호출 함수 (이 부분은 변경 없음) ---
+# --- 에듀넷 API 호출 함수 ---
 def search_keris_contents(query):
     url = "https://api.edunet.net/search/searchApi/search"
     
+    # 2. 요청 변수(Request Parameters) 설정
     params = {
-        "collection": "cre_sys", 
+        # [핵심 수정] 검색 범위를 고교학점제, 교육과정, 수업설계로 확장했습니다.
+        "collection": "cre_sys,crclm,lsn_design", 
         "sort": "r",            
         "searchType": "all",
         "pageNum": 1,
@@ -47,7 +49,7 @@ def search_keris_contents(query):
         return {"error": f"API 호출 중 네트워크 오류: {e}"}
 
 # --- UI 및 검색 실행 ---
-search_query = st.text_input("고교학점제 관련 키워드 (예: 인공지능 기초, 2025)", "2025")
+search_query = st.text_input("고교학점제 관련 키워드 (예: 경제수학, 인공지능 기초)", "경제수학")
 
 if search_query:
     with st.spinner(f"에듀넷 공식 자료를 '{search_query}'로 검색 중..."):
@@ -62,7 +64,7 @@ if search_query:
         try:
             total_count = int(api_result['search']['totalCount'])
             
-            st.success(f"✅ 총 {total_count}건의 공식 자료를 찾았습니다.")
+            st.success(f"✅ 총 {total_count}건의 공식 자료를 찾았습니다. (검색 범위: 고교학점제, 교육과정, 수업설계)")
             
             if total_count > 0:
                 data_list_node = api_result['search']['totalResults']['dataList']
@@ -80,19 +82,13 @@ if search_query:
                     def remove_html_tags(text):
                         if text is None:
                             return ''
-                        # <b>와 </b> 태그를 모두 제거
                         return re.sub(r'</?b>', '', str(text))
 
                     for i, item in enumerate(data_list):
-                        # 5. [핵심 수정] 모든 필드에 태그 제거 로직 적용
-                        raw_title = item.get('ttl', '제목 없음')
-                        clean_title = remove_html_tags(raw_title) 
-                        
-                        category = item.get('srvc_clsf_nm_path', '분류 정보 없음')
-                        clean_category = remove_html_tags(category)
-
-                        summary = item.get('cn', '상세 요약이 없습니다.')
-                        clean_summary = remove_html_tags(summary)
+                        # 모든 필드에 태그 제거 로직 적용
+                        clean_title = remove_html_tags(item.get('ttl', '제목 없음')) 
+                        clean_category = remove_html_tags(item.get('srvc_clsf_nm_path', '분류 정보 없음'))
+                        clean_summary = remove_html_tags(item.get('cn', '상세 요약이 없습니다.'))
                         
                         link = item.get('conts_link')
                         
@@ -102,6 +98,7 @@ if search_query:
                         st.write(clean_summary)
                         
                         if link:
+                            # 썸네일 이미지 경로가 있다면 함께 표시 (if item.get('thmb_img_path'))
                             st.markdown(f"[🔗 에듀넷 상세 자료 바로가기]({link})")
                         st.markdown("---")
             else:
